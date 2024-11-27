@@ -23,7 +23,6 @@ class Persona(db.Model):
     nombre = db.Column(db.String(50), nullable=False)
     apellido = db.Column(db.String(50), nullable=False)
 
-
 class Doctor(db.Model):
     __tablename__ = 'doctores'
     id = db.Column(db.Integer, primary_key=True)
@@ -31,33 +30,25 @@ class Doctor(db.Model):
     especialidad = db.Column(db.String(50), nullable=False)
     horario = db.Column(db.String(100), nullable=False)
 
-
 class Cita(db.Model):
     __tablename__ = 'citas'
     id = db.Column(db.Integer, primary_key=True)
     cedula = db.Column(db.String(20), nullable=False)
     nombre = db.Column(db.String(50), nullable=False)
     apellido = db.Column(db.String(50), nullable=False)
-    fecha = db.Column(db.String(20), nullable=False)
+    fecha = db.Column(db.Date, nullable=False)
     hora = db.Column(db.String(20), nullable=False)
     especialidad = db.Column(db.String(50), nullable=False)
     doctor = db.Column(db.String(50), nullable=False)
 
-
 # Rutas de la API
-@app.route('/validate_cedula', methods=['POST'])
-def validate_cedula():
-    data = request.json
-    cedula = data.get('cedula')
-    if not cedula:
-        return jsonify({'error': 'Cédula no proporcionada'}), 400
-
+@app.route('/validate_cedula/<cedula>', methods=['GET'])
+def validate_cedula(cedula):
     persona = Persona.query.filter_by(cedula=cedula).first()
     if persona:
-        return jsonify({'nombre': persona.nombre, 'apellido': persona.apellido}), 200
+        return jsonify({'valid': True, 'nombre': persona.nombre, 'apellido': persona.apellido}), 200
     else:
-        return jsonify({'error': 'Cédula no encontrada'}), 404
-
+        return jsonify({'valid': False, 'message': 'Cédula no encontrada'}), 404
 
 @app.route('/add_appointment', methods=['POST'])
 def add_appointment():
@@ -82,7 +73,6 @@ def add_appointment():
 
     return jsonify({'message': 'Cita registrada con éxito'}), 201
 
-
 @app.route('/appointments', methods=['GET'])
 def get_appointments():
     citas = Cita.query.all()
@@ -93,13 +83,12 @@ def get_appointments():
             'cedula': cita.cedula,
             'nombre': cita.nombre,
             'apellido': cita.apellido,
-            'fecha': cita.fecha,
+            'fecha': cita.fecha.strftime('%Y-%m-%d'),
             'hora': cita.hora,
             'especialidad': cita.especialidad,
             'doctor': cita.doctor
         })
     return jsonify(result), 200
-
 
 @app.route('/delete_appointment/<int:id>', methods=['DELETE'])
 def delete_appointment(id):
@@ -111,13 +100,17 @@ def delete_appointment(id):
     db.session.commit()
     return jsonify({'message': 'Cita eliminada con éxito'}), 200
 
-
 @app.route('/doctors/<especialidad>', methods=['GET'])
 def get_doctors(especialidad):
     doctores = Doctor.query.filter_by(especialidad=especialidad).all()
     result = [{'id': doctor.id, 'nombre': doctor.nombre} for doctor in doctores]
     return jsonify(result), 200
 
+@app.route('/occupied_times/<fecha>/<doctor>', methods=['GET'])
+def get_occupied_times(fecha, doctor):
+    citas = Cita.query.filter_by(fecha=fecha, doctor=doctor).all()
+    occupied_times = [cita.hora for cita in citas]
+    return jsonify(occupied_times), 200
 
 @app.route('/available_times/<doctor>/<fecha>', methods=['GET'])
 def available_times(doctor, fecha):
@@ -128,7 +121,6 @@ def available_times(doctor, fecha):
     horarios_ocupados = [cita.hora for cita in citas]
     horarios_disponibles = [hora for hora in horarios_totales if hora not in horarios_ocupados]
     return jsonify(horarios_disponibles), 200
-
 
 # Ejecutar la aplicación
 if __name__ == '__main__':
