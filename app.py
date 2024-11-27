@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import os
 
 # Crear la aplicación Flask
 app = Flask(__name__)
@@ -38,6 +37,7 @@ class Cita(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cedula = db.Column(db.String(20), nullable=False)
     nombre = db.Column(db.String(50), nullable=False)
+    apellido = db.Column(db.String(50), nullable=False)
     fecha = db.Column(db.String(20), nullable=False)
     hora = db.Column(db.String(20), nullable=False)
     especialidad = db.Column(db.String(50), nullable=False)
@@ -92,6 +92,7 @@ def get_appointments():
             'id': cita.id,
             'cedula': cita.cedula,
             'nombre': cita.nombre,
+            'apellido': cita.apellido,
             'fecha': cita.fecha,
             'hora': cita.hora,
             'especialidad': cita.especialidad,
@@ -118,16 +119,8 @@ def get_doctors(especialidad):
     return jsonify(result), 200
 
 
-@app.route('/occupied_times/<fecha>/<doctor>', methods=['GET'])
-def get_occupied_times(fecha, doctor):
-    citas = Cita.query.filter_by(fecha=fecha, doctor=doctor).all()
-    occupied_times = [cita.hora for cita in citas]
-    return jsonify(occupied_times), 200
-
-
 @app.route('/available_times/<doctor>/<fecha>', methods=['GET'])
 def available_times(doctor, fecha):
-    # Suponiendo horarios predefinidos para cada doctor
     horarios_totales = [
         "09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"
     ]
