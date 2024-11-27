@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configurar la URI de la base de datos
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:DuLtaMvyFzmYRXcNybXpYmpirKCDmZCg@mysql.railway.internal:3306/railway'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:dtxvIMHOmEKJIwQkqWfMMWWLKwpDXmMw@mysql.railway.internal:3306/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicializar la base de datos
