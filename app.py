@@ -19,7 +19,7 @@ db = SQLAlchemy(app)
 class Persona(db.Model):
     __tablename__ = 'personas'
     id = db.Column(db.Integer, primary_key=True)
-    tipo_documento = db.Column(db.Enum('Registro Civil', 'Tarjeta de Identidad', 'Cédula'), nullable=False, default='Cédula')
+    tipo_documento = db.Column(db.String(20), nullable=False)
     cedula = db.Column(db.String(20), unique=True, nullable=False)
     nombre = db.Column(db.String(50), nullable=False)
     apellido = db.Column(db.String(50), nullable=False)
@@ -35,6 +35,7 @@ class Doctor(db.Model):
 class Cita(db.Model):
     __tablename__ = 'citas'
     id = db.Column(db.Integer, primary_key=True)
+    tipo_documento = db.Column(db.String(20), nullable=False)  # Si lo estás duplicando en la tabla Cita
     cedula = db.Column(db.String(20), nullable=False)
     nombre = db.Column(db.String(50), nullable=False)
     apellido = db.Column(db.String(50), nullable=False)
@@ -92,6 +93,7 @@ def get_appointments():
     for cita in citas:
         result.append({
             'id': cita.id,
+            'tipoDocumento': cita.tipo_documento,  # Asegúrate de devolver este campo
             'cedula': cita.cedula,
             'nombre': cita.nombre,
             'apellido': cita.apellido,
@@ -101,6 +103,7 @@ def get_appointments():
             'doctor': cita.doctor
         })
     return jsonify(result), 200
+
 
 @app.route('/delete_appointment/<int:id>', methods=['DELETE'])
 def delete_appointment(id):
