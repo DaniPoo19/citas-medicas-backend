@@ -1,4 +1,5 @@
 flask
-flask-sqlalchemy
-pymysql
+flask_sqlalchemy
+flask_cors
 gunicorn
+pymysql
