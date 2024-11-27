@@ -19,9 +19,11 @@ db = SQLAlchemy(app)
 class Persona(db.Model):
     __tablename__ = 'personas'
     id = db.Column(db.Integer, primary_key=True)
+    tipo_documento = db.Column(db.Enum('Registro Civil', 'Tarjeta de Identidad', 'Cédula'), nullable=False, default='Cédula')
     cedula = db.Column(db.String(20), unique=True, nullable=False)
     nombre = db.Column(db.String(50), nullable=False)
     apellido = db.Column(db.String(50), nullable=False)
+
 
 class Doctor(db.Model):
     __tablename__ = 'doctores'
@@ -43,27 +45,25 @@ class Cita(db.Model):
 
 # Rutas de la API
 @app.route('/validate_cedula', methods=['POST'])
-def validate_cedula_post():
-    try:
-        data = request.json
-        cedula = data.get('cedula')
-        if not cedula:
-            return jsonify({'valid': False, 'message': 'Cédula no proporcionada'}), 400
+def validate_cedula():
+    data = request.json
+    tipo_documento = data.get('tipo_documento')
+    cedula = data.get('cedula')
 
-        # Validar la cédula en la base de datos
-        persona = Persona.query.filter_by(cedula=cedula).first()
-        if persona:
-            return jsonify({'valid': True, 'nombre': persona.nombre, 'apellido': persona.apellido}), 200
-        else:
-            return jsonify({'valid': False, 'message': 'Cédula no encontrada'}), 404
+    if not (tipo_documento and cedula):
+        return jsonify({'valid': False, 'message': 'Tipo de documento y cédula son obligatorios'}), 400
 
-    except Exception as e:
-        # Manejo de errores genéricos y de conexión
-        return jsonify({'valid': False, 'message': f'Error en el servidor: {str(e)}'}), 500
+    persona = Persona.query.filter_by(tipo_documento=tipo_documento, cedula=cedula).first()
+    if persona:
+        return jsonify({'valid': True, 'nombre': persona.nombre, 'apellido': persona.apellido}), 200
+    else:
+        return jsonify({'valid': False, 'message': 'Documento no encontrado'}), 404
+
 
 @app.route('/add_appointment', methods=['POST'])
 def add_appointment():
     data = request.json
+    tipo_documento = data.get('tipo_documento')
     cedula = data.get('cedula')
     nombre = data.get('nombre')
     apellido = data.get('apellido')
@@ -72,17 +72,18 @@ def add_appointment():
     especialidad = data.get('especialidad')
     doctor = data.get('doctor')
 
-    if not (cedula and nombre and apellido and fecha and hora and especialidad and doctor):
+    if not (tipo_documento and cedula and nombre and apellido and fecha and hora and especialidad and doctor):
         return jsonify({'error': 'Todos los campos son obligatorios'}), 400
 
     nueva_cita = Cita(
-        cedula=cedula, nombre=nombre, apellido=apellido,
+        tipo_documento=tipo_documento, cedula=cedula, nombre=nombre, apellido=apellido,
         fecha=fecha, hora=hora, especialidad=especialidad, doctor=doctor
     )
     db.session.add(nueva_cita)
     db.session.commit()
 
     return jsonify({'message': 'Cita registrada con éxito'}), 201
+
 
 @app.route('/appointments', methods=['GET'])
 def get_appointments():
