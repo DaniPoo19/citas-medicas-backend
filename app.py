@@ -42,13 +42,24 @@ class Cita(db.Model):
     doctor = db.Column(db.String(50), nullable=False)
 
 # Rutas de la API
-@app.route('/validate_cedula/<cedula>', methods=['GET'])
-def validate_cedula(cedula):
-    persona = Persona.query.filter_by(cedula=cedula).first()
-    if persona:
-        return jsonify({'valid': True, 'nombre': persona.nombre, 'apellido': persona.apellido}), 200
-    else:
-        return jsonify({'valid': False, 'message': 'Cédula no encontrada'}), 404
+@app.route('/validate_cedula', methods=['POST'])
+def validate_cedula_post():
+    try:
+        data = request.json
+        cedula = data.get('cedula')
+        if not cedula:
+            return jsonify({'valid': False, 'message': 'Cédula no proporcionada'}), 400
+
+        # Validar la cédula en la base de datos
+        persona = Persona.query.filter_by(cedula=cedula).first()
+        if persona:
+            return jsonify({'valid': True, 'nombre': persona.nombre, 'apellido': persona.apellido}), 200
+        else:
+            return jsonify({'valid': False, 'message': 'Cédula no encontrada'}), 404
+
+    except Exception as e:
+        # Manejo de errores genéricos y de conexión
+        return jsonify({'valid': False, 'message': f'Error en el servidor: {str(e)}'}), 500
 
 @app.route('/add_appointment', methods=['POST'])
 def add_appointment():
