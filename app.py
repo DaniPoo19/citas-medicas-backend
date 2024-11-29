@@ -6,6 +6,7 @@ from datetime import datetime
 # Crear la aplicación Flask
 app = Flask(__name__)
 
+# Permitir solicitudes de otros dominios (CORS)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configurar la URI de la base de datos
@@ -43,7 +44,7 @@ class Cita(db.Model):
     especialidad = db.Column(db.String(50), nullable=False)
     doctor = db.Column(db.String(50), nullable=False)
 
-# Rutas de la API
+# Ruta para validar la cédula
 @app.route('/validate_cedula', methods=['POST'])
 def validate_cedula():
     data = request.json
@@ -53,13 +54,18 @@ def validate_cedula():
     if not (tipo_documento and cedula):
         return jsonify({'valid': False, 'message': 'Tipo de documento y cédula son obligatorios'}), 400
 
-    persona = Persona.query.filter_by(tipo_documento=tipo_documento, cedula=cedula).first()
+    # Realizar la búsqueda insensible a mayúsculas/minúsculas
+    persona = Persona.query.filter(
+        db.func.lower(Persona.tipo_documento) == tipo_documento.lower(),
+        db.func.lower(Persona.cedula) == cedula.lower()
+    ).first()
+
     if persona:
         return jsonify({'valid': True, 'nombre': persona.nombre, 'apellido': persona.apellido}), 200
     else:
         return jsonify({'valid': False, 'message': 'Documento no encontrado'}), 404
 
-
+# Ruta para agregar una nueva cita
 @app.route('/add_appointment', methods=['POST'])
 def add_appointment():
     data = request.json
@@ -90,7 +96,7 @@ def add_appointment():
 
     return jsonify({'message': 'Cita registrada con éxito'}), 201
 
-
+# Ruta para obtener todas las citas
 @app.route('/appointments', methods=['GET'])
 def get_appointments():
     citas = Cita.query.all()
@@ -109,22 +115,24 @@ def get_appointments():
         })
     return jsonify(result), 200
 
-
+# Ruta para obtener los doctores según la especialidad
 @app.route('/doctors/<especialidad>', methods=['GET'])
 def get_doctors(especialidad):
     doctores = Doctor.query.filter_by(especialidad=especialidad).all()
+    if not doctores:
+        return jsonify([]), 404  # Si no hay doctores, devolver una lista vacía
     result = [{'id': doctor.id, 'nombre': doctor.nombre} for doctor in doctores]
     return jsonify(result), 200
 
-
+# Ruta para obtener los horarios disponibles de un doctor en una fecha
 @app.route('/available_times/<doctor>/<fecha>', methods=['GET'])
 def available_times(doctor, fecha):
-    # Definir los horarios disponibles en general
+    # Definir los horarios posibles
     horarios_totales = [
         "09:00 AM", "10:00 AM", "11:00 AM", "02:00 PM", "03:00 PM", "04:00 PM"
     ]
 
-    # Obtener las citas ya registradas para el doctor y la fecha específica
+    # Buscar las citas ya registradas para este doctor y fecha
     citas = Cita.query.filter_by(fecha=fecha, doctor=doctor).all()
     horarios_ocupados = [cita.hora for cita in citas]
 
