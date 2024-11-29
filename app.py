@@ -69,7 +69,7 @@ def available_times(doctor_id, fecha):
     if not doctor:
         return jsonify({'error': 'Doctor no encontrado'}), 404
 
-    # Definir los horarios de trabajo para el doctor
+    # Definir los horarios de trabajo para el doctor según la especialidad
     if doctor.especialidad_id == 1:  # Medicina General
         morning_start = "06:00 AM"
         morning_end = "11:00 AM"
