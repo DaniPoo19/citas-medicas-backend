@@ -1,25 +1,22 @@
+from dotenv import load_dotenv
 import os
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from dotenv import load_dotenv
 
 load_dotenv()
 
 # Crear la aplicación Flask
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 
 
 # Habilitar CORS para permitir solicitudes desde el frontend
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configurar la URI de la base de datos
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
-    f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:uYloZwwZtRjjWHgFOaXXzuBsDfVjvJiL@autorack.proxy.rlwy.net:23579/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 # Inicializar la base de datos
 db = SQLAlchemy(app)
 
