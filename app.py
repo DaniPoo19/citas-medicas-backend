@@ -161,9 +161,9 @@ def available_times(doctor_id, fecha):
 
     # Filtrar los horarios según el turno del doctor (mañana o tarde)
     horarios_disponibles = []
-    if doctor.turno == "Mañana":
+    if doctor.turno == "mañana":
         horarios_disponibles.extend(generate_available_times("06:00 AM", "11:00 AM"))
-    elif doctor.turno == "Tarde":
+    elif doctor.turno == "tarde":
         horarios_disponibles.extend(generate_available_times("01:00 PM", "06:00 PM"))
 
     # Filtrar horarios ocupados
