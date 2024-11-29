@@ -16,13 +16,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Inicializar la base de datos
 db = SQLAlchemy(app)
 
-# Modelos de la base de datos
-
+# Modelo de Especialidad
 class Especialidad(db.Model):
     __tablename__ = 'especialidades'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), unique=True, nullable=False)
 
+# Modelo de Persona
 class Persona(db.Model):
     __tablename__ = 'personas'
     id = db.Column(db.Integer, primary_key=True)
@@ -31,13 +31,28 @@ class Persona(db.Model):
     nombre = db.Column(db.String(50), nullable=False)
     apellido = db.Column(db.String(50), nullable=False)
 
+# Modelo de Doctor
 class Doctor(db.Model):
     __tablename__ = 'doctores'
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), nullable=False)
     especialidad_id = db.Column(db.Integer, db.ForeignKey('especialidades.id'), nullable=False)
     especialidad = db.relationship('Especialidad', backref='doctores')
+    turno = db.Column(db.String(20), nullable=False)  # Mañana o Tarde
 
+# Modelo de Horario (Relación con Doctor)
+class Horario(db.Model):
+    __tablename__ = 'horarios'
+    id = db.Column(db.Integer, primary_key=True)
+    doctor_id = db.Column(db.Integer, db.ForeignKey('doctores.id'), nullable=False)
+    dia = db.Column(db.String(20), nullable=False)  # Ejemplo: 'Lunes', 'Martes', etc.
+    hora_inicio = db.Column(db.String(10), nullable=False)  # Ejemplo: '06:00 AM'
+    hora_fin = db.Column(db.String(10), nullable=False)  # Ejemplo: '11:00 AM'
+    disponible = db.Column(db.Boolean, default=True)  # Si está disponible o no
+
+    doctor = db.relationship('Doctor', backref='horarios')
+
+# Modelo de Cita
 class Cita(db.Model):
     __tablename__ = 'citas'
     id = db.Column(db.Integer, primary_key=True)
@@ -133,8 +148,7 @@ def get_doctors(especialidad_id):
 
     # Obtener doctores que pertenezcan a esa especialidad
     doctores = Doctor.query.filter_by(especialidad_id=especialidad_obj.id).all()
-
-    result = [{'id': doctor.id, 'nombre': doctor.nombre} for doctor in doctores]
+    result = [{'id': doctor.id, 'nombre': doctor.nombre, 'turno': doctor.turno} for doctor in doctores]
     return jsonify(result), 200
 
 # Ruta para obtener los horarios disponibles de un doctor en una fecha
@@ -145,34 +159,18 @@ def available_times(doctor_id, fecha):
     if not doctor:
         return jsonify({'error': 'Doctor no encontrado'}), 404
 
-    # Definir los horarios de trabajo para el doctor según la especialidad
-    if doctor.especialidad_id == 1:  # Medicina General
-        morning_start = "06:00 AM"
-        morning_end = "11:00 AM"
-        afternoon_start = "01:00 PM"
-        afternoon_end = "06:00 PM"
-    elif doctor.especialidad_id == 2:  # Dermatología
-        morning_start = "06:00 AM"
-        morning_end = "11:00 AM"
-        afternoon_start = "01:00 PM"
-        afternoon_end = "06:00 PM"
-    elif doctor.especialidad_id == 3:  # Odontología
-        morning_start = "06:00 AM"
-        morning_end = "11:00 AM"
-        afternoon_start = "01:00 PM"
-        afternoon_end = "06:00 PM"
-    
-    # Generar los horarios posibles en base a los turnos
-    available_times = []
-    available_times.extend(generate_available_times(morning_start, morning_end))
-    available_times.extend(generate_available_times(afternoon_start, afternoon_end))
+    # Filtrar los horarios según el turno del doctor (mañana o tarde)
+    horarios_disponibles = []
+    if doctor.turno == "Mañana":
+        horarios_disponibles.extend(generate_available_times("06:00 AM", "11:00 AM"))
+    elif doctor.turno == "Tarde":
+        horarios_disponibles.extend(generate_available_times("01:00 PM", "06:00 PM"))
 
     # Filtrar horarios ocupados
     citas_ocupadas = Cita.query.filter_by(doctor_id=doctor_id, fecha=fecha).all()
     horarios_ocupados = [cita.hora for cita in citas_ocupadas]
 
-    # Eliminar los horarios ocupados de los disponibles
-    horarios_disponibles = [hora for hora in available_times if hora not in horarios_ocupados]
+    horarios_disponibles = [hora for hora in horarios_disponibles if hora not in horarios_ocupados]
 
     return jsonify(horarios_disponibles), 200
 
