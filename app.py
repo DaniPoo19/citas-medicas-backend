@@ -1,193 +1,177 @@
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from datetime import datetime, timedelta
+from config import app, db
+from modelos import Paciente, Especialidad, Medico, Cita, HorarioMedico, DiaFestivo
+import datetime
 
-# Crear la aplicación Flask
-app = Flask(__name__)
+CORS(app)
 
-# Permitir solicitudes de otros dominios (CORS)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-# Configurar la URI de la base de datos
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:uYloZwwZtRjjWHgFOaXXzuBsDfVjvJiL@autorack.proxy.rlwy.net:23579/railway'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Inicializar la base de datos
-db = SQLAlchemy(app)
-
-# Modelo de Especialidad
-class Especialidad(db.Model):
-    __tablename__ = 'especialidades'
-    id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(50), unique=True, nullable=False)
-
-# Modelo de Persona
-class Persona(db.Model):
-    __tablename__ = 'personas'
-    id = db.Column(db.Integer, primary_key=True)
-    tipo_documento = db.Column(db.String(20), nullable=False)
-    cedula = db.Column(db.String(20), unique=True, nullable=False)
-    nombre = db.Column(db.String(50), nullable=False)
-    apellido = db.Column(db.String(50), nullable=False)
-
-# Modelo de Doctor
-class Doctor(db.Model):
-    __tablename__ = 'doctores'
-    id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(50), nullable=False)
-    especialidad_id = db.Column(db.Integer, db.ForeignKey('especialidades.id'), nullable=False)
-    especialidad = db.relationship('Especialidad', backref='doctores')
-    turno = db.Column(db.String(20), nullable=False)  # Mañana o Tarde
-
-# Modelo de Horario (Relación con Doctor)
-class Horario(db.Model):
-    __tablename__ = 'horarios'
-    id = db.Column(db.Integer, primary_key=True)
-    doctor_id = db.Column(db.Integer, db.ForeignKey('doctores.id'), nullable=False)
-    dia = db.Column(db.String(20), nullable=False)  # Ejemplo: 'Lunes', 'Martes', etc.
-    hora_inicio = db.Column(db.String(10), nullable=False)  # Ejemplo: '06:00 AM'
-    hora_fin = db.Column(db.String(10), nullable=False)  # Ejemplo: '11:00 AM'
-    disponible = db.Column(db.Boolean, default=True)  # Si está disponible o no
-
-    doctor = db.relationship('Doctor', backref='horarios')
-
-# Modelo de Cita
-class Cita(db.Model):
-    __tablename__ = 'citas'
-    id = db.Column(db.Integer, primary_key=True)
-    persona_id = db.Column(db.Integer, db.ForeignKey('personas.id'), nullable=False)
-    doctor_id = db.Column(db.Integer, db.ForeignKey('doctores.id'), nullable=False)
-    fecha = db.Column(db.Date, nullable=False)
-    hora = db.Column(db.String(20), nullable=False)
-    especialidad = db.Column(db.String(50), nullable=False)
-    persona = db.relationship('Persona', backref='citas')
-    doctor = db.relationship('Doctor', backref='citas')
-
-# Ruta para validar la cédula
-@app.route('/validate_cedula', methods=['POST'])
-def validate_cedula():
+# Ruta para agregar un paciente
+@app.route('/pacientes', methods=['POST'])
+def agregar_paciente():
     data = request.json
-    tipo_documento = data.get('tipoDocumento')
-    cedula = data.get('cedula')
-
-    if not (tipo_documento and cedula):
-        return jsonify({'valid': False, 'message': 'Tipo de documento y cédula son obligatorios'}), 400
-
-    # Buscar la persona en la base de datos, insensible a mayúsculas/minúsculas
-    persona = Persona.query.filter(
-        db.func.lower(Persona.tipo_documento) == tipo_documento.lower(),
-        db.func.lower(Persona.cedula) == cedula.lower()
-    ).first()
-
-    if persona:
-        return jsonify({'valid': True, 'nombre': persona.nombre, 'apellido': persona.apellido}), 200
-    else:
-        return jsonify({'valid': False, 'message': 'Documento no encontrado'}), 404
-
-# Ruta para agregar una nueva cita
-@app.route('/add_appointment', methods=['POST'])
-def add_appointment():
-    data = request.json
-    persona_id = data.get('persona_id')
-    doctor_id = data.get('doctor')
-    fecha = data.get('fecha')
-    hora = data.get('hora')
-    especialidad = data.get('especialidad')
-
-    if not (persona_id and doctor_id and fecha and hora and especialidad):
-        return jsonify({'error': 'Todos los campos son obligatorios'}), 400
-
     try:
-        fecha = datetime.strptime(fecha, "%Y-%m-%d").date()
-    except ValueError:
-        return jsonify({'error': 'Formato de fecha incorrecto, debe ser YYYY-MM-DD'}), 400
+        paciente = Paciente(**data)
+        db.session.add(paciente)
+        db.session.commit()
+        return jsonify({'message': 'Paciente agregado con éxito'}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': str(e)}), 400
 
-    nueva_cita = Cita(
-        persona_id=persona_id, doctor_id=doctor_id, fecha=fecha, hora=hora, especialidad=especialidad
-    )
-    db.session.add(nueva_cita)
-    db.session.commit()
+# Ruta para agendar una cita
+@app.route('/citas', methods=['POST'])
+def agendar_cita():
+    data = request.json
+    paciente_id = data.get('paciente_id')
+    especialidad_id = data.get('especialidad_id')
+    medico_id = data.get('medico_id')
+    fecha_cita = datetime.datetime.strptime(data.get('fecha_cita'), '%Y-%m-%d').date()
+    hora_cita = datetime.datetime.strptime(data.get('hora_cita'), '%H:%M:%S').time()
+    
+    try:
+        # Verificar si el paciente ya tiene una cita para esa especialidad
+        cita_existente = Cita.query.filter_by(paciente_id=paciente_id, especialidad_id=especialidad_id).first()
+        if cita_existente:
+            return jsonify({'message': 'Ya tiene una cita para esta especialidad'}), 400
 
-    return jsonify({'message': 'Cita registrada con éxito'}), 201
+        # Verificar si el paciente ya tiene una cita en el mismo horario con otra especialidad
+        cita_misma_hora = Cita.query.filter_by(paciente_id=paciente_id, fecha_cita=fecha_cita, hora_cita=hora_cita).first()
+        if cita_misma_hora:
+            return jsonify({'message': 'No puede sacar citas en diferente especialidad a la misma hora'}), 400
 
-# Ruta para obtener todas las citas
-@app.route('/appointments', methods=['GET'])
-def get_appointments():
-    citas = Cita.query.all()
-    result = []
-    for cita in citas:
-        result.append({
-            'id': cita.id,
-            'tipo_documento': cita.persona.tipo_documento,
-            'cedula': cita.persona.cedula,
-            'nombre': cita.persona.nombre,
-            'apellido': cita.persona.apellido,
-            'fecha': cita.fecha.strftime('%Y-%m-%d'),
-            'hora': cita.hora,
-            'especialidad': cita.especialidad,
-            'doctor': cita.doctor.nombre
-        })
-    return jsonify(result), 200
+        # Verificar si el médico ya tiene una cita en el mismo horario
+        cita_medico = Cita.query.filter_by(medico_id=medico_id, fecha_cita=fecha_cita, hora_cita=hora_cita).first()
+        if cita_medico:
+            return jsonify({'message': 'El médico ya tiene una cita en este horario'}), 400
+
+        # Registrar la nueva cita
+        cita = Cita(
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            especialidad_id=especialidad_id,
+            fecha_cita=fecha_cita,
+            hora_cita=hora_cita
+        )
+        db.session.add(cita)
+        db.session.commit()
+        return jsonify({'message': 'Cita agendada con éxito'}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': str(e)}), 400
+
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': str(e)}), 400
 
 # Ruta para obtener las especialidades
 @app.route('/especialidades', methods=['GET'])
-def get_especialidades():
-    especialidades = Especialidad.query.all()
-    result = [{'id': especialidad.id, 'nombre': especialidad.nombre} for especialidad in especialidades]
-    return jsonify(result), 200
+def obtener_especialidades():
+    try:
+        especialidades = Especialidad.query.all()
+        result = [{'id': esp.especialidad_id, 'nombre': esp.nombre} for esp in especialidades]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 400
 
-# Ruta para obtener los doctores según la especialidad
-@app.route('/doctors/<especialidad_id>', methods=['GET'])
-def get_doctors(especialidad_id):
-    # Buscar la especialidad en la base de datos
-    especialidad_obj = Especialidad.query.get(especialidad_id)
-    
-    if not especialidad_obj:
-        return jsonify({'error': 'Especialidad no encontrada'}), 404
+# Ruta para obtener los médicos de una especialidad
+@app.route('/doctors/<int:especialidad_id>', methods=['GET'])
+def obtener_medicos(especialidad_id):
+    try:
+        medicos = Medico.query.filter_by(especialidad_id=especialidad_id).all()
+        result = [{'id': med.medico_id, 'nombre': f'{med.nombre} {med.apellido}'} for med in medicos]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 400
 
-    # Obtener doctores que pertenezcan a esa especialidad
-    doctores = Doctor.query.filter_by(especialidad_id=especialidad_obj.id).all()
-    result = [{'id': doctor.id, 'nombre': doctor.nombre, 'turno': doctor.turno} for doctor in doctores]
-    return jsonify(result), 200
+# Ruta para validar la cédula de un paciente
+@app.route('/validate_cedula', methods=['POST'])
+def validar_cedula():
+    data = request.json
+    tipo_documento = data.get('tipoDocumento')
+    numero_documento = data.get('cedula')
+    try:
+        paciente = Paciente.query.filter_by(tipo_documento=tipo_documento, numero_documento=numero_documento).first()
+        if paciente:
+            return jsonify({
+                'paciente_id': paciente.paciente_id,  # Enviar el ID del paciente
+                'nombre': paciente.nombre,
+                'apellido': paciente.apellido
+            }), 200
+        else:
+            return jsonify({'message': 'Documento no encontrado'}), 404
+    except Exception as e:
+        return jsonify({'message': str(e)}), 400
 
-# Ruta para obtener los horarios disponibles de un doctor en una fecha
-@app.route('/available_times/<doctor_id>/<fecha>', methods=['GET'])
-def available_times(doctor_id, fecha):
-    doctor = Doctor.query.get(doctor_id)
-    
-    if not doctor:
-        return jsonify({'error': 'Doctor no encontrado'}), 404
 
-    # Filtrar los horarios según el turno del doctor (mañana o tarde)
-    horarios_disponibles = []
-    if doctor.turno == "mañana":
-        horarios_disponibles.extend(generate_available_times("06:00 AM", "11:00 AM"))
-    elif doctor.turno == "tarde":
-        horarios_disponibles.extend(generate_available_times("01:00 PM", "06:00 PM"))
+# Ruta para obtener los horarios disponibles de un médico en una fecha
+@app.route('/available_times/<int:medico_id>/<string:fecha>', methods=['GET'])
+def obtener_horarios_disponibles(medico_id, fecha):
+    try:
+        fecha_cita = datetime.datetime.strptime(fecha, '%Y-%m-%d').date()
+        horarios_medico = HorarioMedico.query.filter_by(medico_id=medico_id).all()
 
-    # Filtrar horarios ocupados
-    citas_ocupadas = Cita.query.filter_by(doctor_id=doctor_id, fecha=fecha).all()
-    horarios_ocupados = [cita.hora for cita in citas_ocupadas]
+        if not horarios_medico:
+            return jsonify({'message': 'No se encontraron horarios para este médico'}), 404
 
-    horarios_disponibles = [hora for hora in horarios_disponibles if hora not in horarios_ocupados]
+        # Obtener las citas ya agendadas para el médico y la fecha
+        horarios_ocupados = Cita.query.filter_by(medico_id=medico_id, fecha_cita=fecha_cita).all()
+        horas_ocupadas = [cita.hora_cita for cita in horarios_ocupados]
 
-    return jsonify(horarios_disponibles), 200
+        horarios_disponibles = []  # Lista para almacenar los horarios disponibles
 
-# Función para generar horarios disponibles en intervalos de 20 minutos
-def generate_available_times(start_time, end_time):
-    available_times = []
-    start = datetime.strptime(start_time, "%I:%M %p")
-    end = datetime.strptime(end_time, "%I:%M %p")
-    
-    while start < end:
-        available_times.append(start.strftime("%I:%M %p"))
-        start += timedelta(minutes=20)
-    
-    return available_times
+        # Recorrer los horarios del médico y generar los horarios disponibles
+        for horario in horarios_medico:
+            hora_inicio = datetime.datetime.strptime(str(horario.hora_inicio), '%H:%M:%S').time()
+            hora_fin = datetime.datetime.strptime(str(horario.hora_fin), '%H:%M:%S').time()
+            hora_actual = hora_inicio
 
-# Ejecutar la aplicación
+            # Generar horarios cada 30 minutos y verificar disponibilidad
+            while hora_actual < hora_fin:
+                # Solo agregar si la hora no está ocupada
+                if hora_actual not in horas_ocupadas:
+                    horarios_disponibles.append(hora_actual.strftime('%H:%M:%S'))
+
+                # Incrementar en intervalos de 30 minutos
+                hora_actual = (datetime.datetime.combine(datetime.date.today(), hora_actual) + datetime.timedelta(minutes=30)).time()
+
+        # Ordenar los horarios disponibles y asegurarse de no duplicarlos
+        horarios_disponibles = sorted(list(set(horarios_disponibles)))
+
+        return jsonify(horarios_disponibles), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 400
+
+# Ruta para cargar las citas registradas
+@app.route('/appointments', methods=['GET'])
+def obtener_citas():
+    try:
+        citas = Cita.query.all()
+        result = []
+        for cita in citas:
+            paciente = Paciente.query.get(cita.paciente_id)
+            medico = Medico.query.get(cita.medico_id)
+            especialidad = Especialidad.query.get(cita.especialidad_id)
+
+            result.append({
+                'id': cita.cita_id,
+                'tipo_documento': paciente.tipo_documento,
+                'cedula': paciente.numero_documento,
+                'nombre': paciente.nombre,
+                'apellido': paciente.apellido,
+                'fecha': cita.fecha_cita.strftime('%Y-%m-%d'),
+                'hora': cita.hora_cita.strftime('%H:%M:%S'),
+                'especialidad': especialidad.nombre,
+                'doctor': f'{medico.nombre} {medico.apellido}'
+            })
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'message': str(e)}), 400
+
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # Crear las tablas si no existen
-    app.run(host='0.0.0.0', port=8080)
+        db.create_all()
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
