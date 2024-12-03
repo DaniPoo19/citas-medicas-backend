@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Cambiar "*" por un dominio específico en producción
 
 # Configuración de la base de datos usando variables de entorno
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql+pymysql://root:password@localhost/db_name')  # Proporciona un valor por defecto para desarrollo local
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:vQXKrEivnMiXrhWioRJniLfCIXTlwNOS@junction.proxy.rlwy.net:42172/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicializar la base de datos y las migraciones
