@@ -1,17 +1,17 @@
-import os
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
-from flask_migrate import Migrate
+from flask_cors import CORS  # Importa CORS
 
-# Inicializar la app y configurar CORS
+# Crear instancia de la aplicación
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Cambiar "*" por un dominio específico en producción
 
-# Configuración de la base de datos usando variables de entorno
+# Configuración de la base de datos
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:vQXKrEivnMiXrhWioRJniLfCIXTlwNOS@junction.proxy.rlwy.net:42172/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializar la base de datos y las migraciones
+# Instanciar la base de datos
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+
+# Configurar CORS para la aplicación
+CORS(app, resources={r"/*": {"origins": "https://danipoo19.github.io"}})  # Aquí va la configuración de CORS
+
