@@ -6,7 +6,7 @@ from flask_cors import CORS  # Importa CORS
 app = Flask(__name__)
 
 # Configuración de la base de datos
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:vQXKrEivnMiXrhWioRJniLfCIXTlwNOS@junction.proxy.rlwy.net:42172/railway'
+app.config['SQLALCHEMY_DATABASE_URI'] = '${{ MySQL.MYSQL_URL }}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Instanciar la base de datos
